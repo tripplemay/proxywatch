@@ -26,7 +26,16 @@ func RunOnce(s *store.Store, p *ActiveProber, m *decision.Machine) error {
 		return fmt.Errorf("persist probe: %w", err)
 	}
 	if m != nil {
-		m.OnActive(r.TS, r.OK)
+		// Distinguish proxy-gateway-down (transport failure, no HTTP response)
+		// from upstream errors (got an HTTP response, even if 4xx/5xx).
+		// HTTPCode == 0 + RawError != "" means we couldn't even reach upstream
+		// — that's a proxy connectivity issue, not a rotation signal.
+		if r.HTTPCode == 0 && r.RawError != "" {
+			m.OnProxyDown(r.TS)
+		} else {
+			m.OnProxyUp(r.TS)
+			m.OnActive(r.TS, r.OK)
+		}
 		m.Tick(r.TS)
 	}
 	return nil

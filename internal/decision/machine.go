@@ -37,6 +37,7 @@ type Machine struct {
 	since                  time.Time
 	window                 *Window
 	consecutiveActiveFails int
+	proxyDownStreak        int
 
 	// rotation state
 	rotationCount     int
@@ -82,6 +83,27 @@ func (m *Machine) OnIPChange() {
 	if m.state == StateRotating {
 		m.transition(StateVerifying, time.Now())
 	}
+}
+
+// OnProxyDown increments the proxy-down streak.
+func (m *Machine) OnProxyDown(at time.Time) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.proxyDownStreak++
+}
+
+// OnProxyUp resets the proxy-down streak.
+func (m *Machine) OnProxyUp(at time.Time) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.proxyDownStreak = 0
+}
+
+// IsProxyDown returns true if proxy has been down for 3+ consecutive probes.
+func (m *Machine) IsProxyDown() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.proxyDownStreak >= 3
 }
 
 // Confirm forces VERIFYING (used when user clicks "I rotated" button).

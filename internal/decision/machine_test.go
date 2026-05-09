@@ -56,3 +56,17 @@ func TestSuspectToRotatingAfterObservationTimeout(t *testing.T) {
 		t.Errorf("state=%s, want ROTATING", got)
 	}
 }
+
+func TestProxyDownDoesNotTriggerSuspect(t *testing.T) {
+	m := NewMachine(Defaults())
+	now := time.Now()
+	for i := 0; i < 5; i++ {
+		m.OnProxyDown(now)
+	}
+	if m.Tick(now) != StateHealthy {
+		t.Errorf("state=%s, want HEALTHY (proxy down should not be a rotation trigger)", m.State())
+	}
+	if !m.IsProxyDown() {
+		t.Error("IsProxyDown should be true")
+	}
+}

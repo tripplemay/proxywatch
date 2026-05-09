@@ -25,6 +25,7 @@ type Executor struct {
 	openIncident  int64
 	rotationStart time.Time
 	rotationOldIP string
+	prevProxyDown bool
 }
 
 func (e *Executor) Run(ctx context.Context, interval time.Duration) {
@@ -42,6 +43,17 @@ func (e *Executor) Run(ctx context.Context, interval time.Duration) {
 }
 
 func (e *Executor) tick(now time.Time) {
+	// Proxy-gateway-down alert path — independent of state machine.
+	if e.Machine.IsProxyDown() && !e.prevProxyDown {
+		if e.Alert != nil {
+			e.Alert("⚠️ proxy gateway unreachable (TCP failure to SOCKS5 endpoint).\nThis is NOT a rotation trigger; check miyaIP service health.", "warning")
+		}
+		e.prevProxyDown = true
+	}
+	if !e.Machine.IsProxyDown() {
+		e.prevProxyDown = false
+	}
+
 	cur := e.Machine.State()
 	if cur == e.prevState {
 		// observe IP changes if in ROTATING
