@@ -16,6 +16,7 @@ import (
 	"github.com/tripplemay/proxywatch/internal/config"
 	"github.com/tripplemay/proxywatch/internal/prober"
 	"github.com/tripplemay/proxywatch/internal/store"
+	"github.com/tripplemay/proxywatch/internal/web"
 )
 
 const version = "0.1.0-dev"
@@ -74,7 +75,7 @@ func main() {
 	log.Info("proxywatch starting", "version", version, "listen", cfg.Listen)
 	go prober.Loop(ctx, s, probe, getInterval, log)
 
-	apiSrv := api.NewServer(s, cfg.AuthKey, version)
+	apiSrv := api.NewServer(s, cfg.AuthKey, version).WithStatic(web.FS())
 	srv := &http.Server{Addr: cfg.Listen, Handler: apiSrv.Handler()}
 	go func() { _ = srv.ListenAndServe() }()
 

@@ -30,6 +30,10 @@ web/node_modules/
 .pnpm-debug.log
 *.tgz
 
+# Embed dir — only commit .gitkeep, ignore generated assets
+internal/web/dist/*
+!internal/web/dist/.gitkeep
+
 # Local secrets
 *.env
 .env.local
