@@ -1,0 +1,34 @@
+# Claude Code workspace metadata
+.claude/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Build artifacts
+/dist/
+/build/
+/bin/
+*.exe
+
+# Go
+/vendor/
+*.test
+*.out
+coverage.txt
+go.work
+go.work.sum
+
+# Node / frontend
+node_modules/
+/web/dist/
+.pnpm-debug.log
+*.tgz
+
+# Local secrets
+*.env
+.env.local
+proxywatch.local.yaml
