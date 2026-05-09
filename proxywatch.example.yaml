@@ -13,5 +13,9 @@ active_probe:
   interval_seconds: 60
   timeout_seconds: 15
 
+telegram:
+  bot_token: ""
+  chat_id: ""
+
 # PROXYWATCH_KEY must be set as an environment variable, not in this file.
 # Generate with: openssl rand -hex 32

@@ -64,3 +64,20 @@ func TestStatusHandlerWithProbe(t *testing.T) {
 		t.Errorf("exit_ip=%v, want 1.1.1.1", got["exit_ip"])
 	}
 }
+
+func TestTestNotifyEnqueuesMessage(t *testing.T) {
+	s := newStoreT(t)
+	srv := NewServer(s, "k", "0.1.0")
+	rec := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/api/test-notify", nil)
+	r.Header.Set("Authorization", "Bearer k")
+	srv.Handler().ServeHTTP(rec, r)
+
+	if rec.Code != 202 {
+		t.Errorf("code=%d, want 202", rec.Code)
+	}
+	pending, _ := s.PendingNotifications(10)
+	if len(pending) != 1 {
+		t.Errorf("pending=%d, want 1", len(pending))
+	}
+}

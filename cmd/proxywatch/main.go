@@ -14,6 +14,7 @@ import (
 
 	"github.com/tripplemay/proxywatch/internal/api"
 	"github.com/tripplemay/proxywatch/internal/config"
+	"github.com/tripplemay/proxywatch/internal/notifier"
 	"github.com/tripplemay/proxywatch/internal/prober"
 	"github.com/tripplemay/proxywatch/internal/store"
 	"github.com/tripplemay/proxywatch/internal/web"
@@ -74,6 +75,14 @@ func main() {
 
 	log.Info("proxywatch starting", "version", version, "listen", cfg.Listen)
 	go prober.Loop(ctx, s, probe, getInterval, log)
+
+	if cfg.Telegram.BotToken != "" && cfg.Telegram.ChatID != "" {
+		tg := notifier.NewTelegram(cfg.Telegram.BotToken, cfg.Telegram.ChatID, &http.Client{Timeout: 10 * time.Second})
+		q := &notifier.Queue{Store: s, Telegram: tg}
+		go q.Loop(ctx, 10*time.Second, log)
+	} else {
+		log.Warn("telegram not configured; notifications will queue but not be sent")
+	}
 
 	apiSrv := api.NewServer(s, cfg.AuthKey, version).WithStatic(web.FS())
 	srv := &http.Server{Addr: cfg.Listen, Handler: apiSrv.Handler()}

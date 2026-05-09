@@ -14,6 +14,7 @@ type Config struct {
 	CPALogDir   string `yaml:"cpa_log_dir"`
 
 	ActiveProbe ActiveProbeConfig `yaml:"active_probe"`
+	Telegram    TelegramConfig    `yaml:"telegram"`
 
 	// AuthKey comes from env, not yaml
 	AuthKey string `yaml:"-"`
@@ -23,6 +24,11 @@ type ActiveProbeConfig struct {
 	Target          string `yaml:"target"`
 	IntervalSeconds int    `yaml:"interval_seconds"`
 	TimeoutSeconds  int    `yaml:"timeout_seconds"`
+}
+
+type TelegramConfig struct {
+	BotToken string `yaml:"bot_token"`
+	ChatID   string `yaml:"chat_id"`
 }
 
 func Load(path string) (*Config, error) {

@@ -3,6 +3,9 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"time"
+
+	"github.com/tripplemay/proxywatch/internal/store"
 )
 
 type statusResponse struct {
@@ -44,4 +47,21 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+func (s *Server) handleTestNotify(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	_, err := s.store.EnqueueNotification(store.Notification{
+		TS:    time.Now(),
+		Level: "info",
+		Text:  "proxywatch test notification — if you see this, telegram works",
+	})
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
 }
