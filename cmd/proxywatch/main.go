@@ -15,6 +15,7 @@ import (
 	"github.com/tripplemay/proxywatch/internal/api"
 	"github.com/tripplemay/proxywatch/internal/config"
 	"github.com/tripplemay/proxywatch/internal/decision"
+	"github.com/tripplemay/proxywatch/internal/executor"
 	"github.com/tripplemay/proxywatch/internal/notifier"
 	"github.com/tripplemay/proxywatch/internal/prober"
 	"github.com/tripplemay/proxywatch/internal/store"
@@ -125,6 +126,18 @@ func main() {
 	} else {
 		log.Warn("telegram not configured; notifications will queue but not be sent")
 	}
+
+	exec := &executor.Executor{
+		Store:   s,
+		Machine: m,
+		Alert: func(text, level string) {
+			_, _ = s.EnqueueNotification(store.Notification{
+				TS: time.Now(), Level: level, Text: text,
+			})
+		},
+		Log: log,
+	}
+	go exec.Run(ctx, 5*time.Second)
 
 	apiSrv := api.NewServer(s, cfg.AuthKey, version).WithStatic(web.FS()).WithMachine(m)
 	srv := &http.Server{Addr: cfg.Listen, Handler: apiSrv.Handler()}
