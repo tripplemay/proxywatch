@@ -50,6 +50,9 @@ func (s *Server) Handler() http.Handler {
 			http.Error(w, "method not allowed", 405)
 		}
 	})
+	api.HandleFunc("/api/probes", s.handleProbesHistory)
+	api.HandleFunc("/api/incidents", s.handleIncidentsHistory)
+	api.HandleFunc("/api/rotations", s.handleRotationsHistory)
 	mux.Handle("/api/", BearerAuth(s.authKey, api))
 
 	if s.staticFS != nil {

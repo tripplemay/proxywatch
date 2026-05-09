@@ -151,3 +151,23 @@ func TestPutSettingsRoundTrip(t *testing.T) {
 		t.Errorf("passive_threshold=%q ok=%v, want 5 true", v, ok)
 	}
 }
+
+func TestProbesHistoryEndpoint(t *testing.T) {
+	s := newStoreT(t)
+	for i := 0; i < 3; i++ {
+		s.InsertProbe(store.Probe{TS: time.Now(), Kind: "active", OK: true})
+	}
+	srv := NewServer(s, "k", "0.1.0")
+	rec := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/api/probes?limit=10&kind=active", nil)
+	r.Header.Set("Authorization", "Bearer k")
+	srv.Handler().ServeHTTP(rec, r)
+	if rec.Code != 200 {
+		t.Fatalf("code=%d", rec.Code)
+	}
+	var got []map[string]any
+	json.NewDecoder(rec.Body).Decode(&got)
+	if len(got) != 3 {
+		t.Errorf("len=%d, want 3", len(got))
+	}
+}

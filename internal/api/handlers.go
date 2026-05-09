@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/tripplemay/proxywatch/internal/store"
@@ -132,4 +133,52 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(200)
+}
+
+func (s *Server) handleProbesHistory(w http.ResponseWriter, r *http.Request) {
+	limit := 100
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 1000 {
+			limit = n
+		}
+	}
+	kind := r.URL.Query().Get("kind")
+	rows, err := s.store.RecentProbes(limit, kind)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	out := make([]probeJSON, 0, len(rows))
+	for _, p := range rows {
+		out = append(out, probeJSON{
+			TSMS:      p.TS.UnixMilli(),
+			HTTPCode:  p.HTTPCode,
+			LatencyMS: p.LatencyMS,
+			ExitIP:    p.ExitIP,
+			OK:        p.OK,
+			Error:     p.RawError,
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(out)
+}
+
+func (s *Server) handleIncidentsHistory(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.store.RecentIncidents(50)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rows)
+}
+
+func (s *Server) handleRotationsHistory(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.store.RecentRotations(50)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rows)
 }
