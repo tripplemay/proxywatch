@@ -1,0 +1,17 @@
+# proxywatch.example.yaml
+listen: ":18318"
+data_dir: "/data"
+
+# CPA's SOCKS5 upstream proxy URL (same value as in CPA's config.yaml)
+cpa_proxy_url: "socks5h://USERNAME:PASSWORD@us.miyaip.online:1111"
+
+# Path to CPA's log directory, mounted read-only into proxywatch
+cpa_log_dir: "/cpa-logs"
+
+active_probe:
+  target: "https://api.openai.com/v1/models"
+  interval_seconds: 60
+  timeout_seconds: 15
+
+# PROXYWATCH_KEY must be set as an environment variable, not in this file.
+# Generate with: openssl rand -hex 32
