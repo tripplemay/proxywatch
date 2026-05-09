@@ -95,6 +95,29 @@ func main() {
 		}
 	}()
 
+	// Passive log tail — counts 4xx events from CPA's main.log (when available).
+	if cfg.CPALogDir != "" {
+		pt := &prober.PassiveTail{
+			Path:    filepath.Join(cfg.CPALogDir, "main.log"),
+			Pattern: `\[gin_logger\.go:[0-9]+\]\s+(\d{3})`, // confirmed in Task 6.1 (passive_format.md)
+			Emit: func(ts time.Time, code int) {
+				_, _ = s.InsertProbe(store.Probe{
+					TS:       ts,
+					Kind:     "passive",
+					HTTPCode: code,
+					OK:       code < 400,
+				})
+				m.OnPassive(ts, code)
+			},
+			Log: log,
+		}
+		go func() {
+			if err := pt.Run(ctx); err != nil {
+				log.Error("passive tail", "err", err)
+			}
+		}()
+	}
+
 	if cfg.Telegram.BotToken != "" && cfg.Telegram.ChatID != "" {
 		tg := notifier.NewTelegram(cfg.Telegram.BotToken, cfg.Telegram.ChatID, &http.Client{Timeout: 10 * time.Second})
 		q := &notifier.Queue{Store: s, Telegram: tg}
