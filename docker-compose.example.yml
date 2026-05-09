@@ -1,0 +1,22 @@
+# proxywatch service block
+# Add this to your existing docker-compose.yml that already runs CPA (cli-proxy-api)
+# and (optionally) cpa-manager. proxywatch joins their default network so it can
+# reach cli-proxy-api by service name if needed.
+services:
+  proxywatch:
+    image: proxywatch:0.1.0          # Build locally with: docker build -t proxywatch:0.1.0 .
+    container_name: proxywatch
+    ports:
+      - "127.0.0.1:18318:18318"      # Bind to localhost; nginx reverse-proxies to TLS
+    volumes:
+      - proxywatch-data:/data        # SQLite persistence
+      - ./logs:/cpa-logs:ro          # CPA logs (read-only) for passive 4xx tail
+      - ./proxywatch.yaml:/etc/proxywatch.yaml:ro
+    env_file:
+      - ./proxywatch.env             # PROXYWATCH_KEY=<openssl rand -hex 32>
+    restart: unless-stopped
+    depends_on:
+      - cli-proxy-api
+
+volumes:
+  proxywatch-data:
