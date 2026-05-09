@@ -54,9 +54,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	// IP lookup must go through the SOCKS5 proxy so we capture the EXIT IP
+	// (the proxy's egress, not this server's IP). Reuse socksClient.
 	ipLookup := &prober.IPLookup{
 		Endpoints: prober.DefaultIPLookupEndpoints,
-		Client:    &http.Client{Timeout: 5 * time.Second},
+		Client:    socksClient,
 		Timeout:   5 * time.Second,
 	}
 	probe := &prober.ActiveProber{
