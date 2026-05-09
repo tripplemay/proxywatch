@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchStatus, getKey, setKey, Status } from './api'
+import { Settings } from './components/Settings'
 import './styles.css'
 
 export default function App() {
@@ -67,6 +68,8 @@ export default function App() {
           await fetch('/api/resume-automation', { method: 'POST', headers: { Authorization: `Bearer ${getKey()}` } })
         }}>Resume automation</button>
       )}
+
+      <Settings apiKey={getKey()} />
 
       <footer>
         <button onClick={() => { localStorage.removeItem('proxywatch.key'); location.reload() }}>Logout</button>

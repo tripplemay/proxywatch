@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -104,5 +105,49 @@ func TestConfirmRotationAdvancesMachine(t *testing.T) {
 	}
 	if m.State() != decision.StateVerifying {
 		t.Errorf("state=%s, want VERIFYING", m.State())
+	}
+}
+
+func TestGetSettingsReturnsKeys(t *testing.T) {
+	s := newStoreT(t)
+	srv := NewServer(s, "k", "0.1.0").WithMachine(decision.NewMachine(decision.Defaults()))
+	rec := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/api/settings", nil)
+	r.Header.Set("Authorization", "Bearer k")
+	srv.Handler().ServeHTTP(rec, r)
+	if rec.Code != 200 {
+		t.Errorf("code=%d", rec.Code)
+	}
+	var got map[string]any
+	json.NewDecoder(rec.Body).Decode(&got)
+	// expect map with at least one of the known keys (value is empty string until SetKV)
+	expected := []string{"active_probe_interval_seconds", "passive_threshold", "telegram_bot_token", "telegram_chat_id"}
+	for _, k := range expected {
+		if _, ok := got[k]; !ok {
+			t.Errorf("missing key: %s", k)
+		}
+	}
+}
+
+func TestPutSettingsRoundTrip(t *testing.T) {
+	s := newStoreT(t)
+	srv := NewServer(s, "k", "0.1.0").WithMachine(decision.NewMachine(decision.Defaults()))
+
+	body := strings.NewReader(`{"active_probe_interval_seconds":"30","passive_threshold":"5"}`)
+	rec := httptest.NewRecorder()
+	r := httptest.NewRequest("PUT", "/api/settings", body)
+	r.Header.Set("Authorization", "Bearer k")
+	srv.Handler().ServeHTTP(rec, r)
+	if rec.Code != 200 {
+		t.Errorf("PUT code=%d", rec.Code)
+	}
+
+	v, ok, _ := s.GetKV("active_probe_interval_seconds")
+	if !ok || v != "30" {
+		t.Errorf("active_probe_interval_seconds=%q ok=%v, want 30 true", v, ok)
+	}
+	v, ok, _ = s.GetKV("passive_threshold")
+	if !ok || v != "5" {
+		t.Errorf("passive_threshold=%q ok=%v, want 5 true", v, ok)
 	}
 }

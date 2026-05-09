@@ -95,3 +95,41 @@ func (s *Server) handleResumeAutomation(w http.ResponseWriter, r *http.Request) 
 	s.machine.ResumeAutomation()
 	w.WriteHeader(http.StatusOK)
 }
+
+func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
+	out := map[string]string{}
+	keys := []string{
+		"active_probe_interval_seconds",
+		"passive_threshold",
+		"active_failure_threshold",
+		"suspect_observation_seconds",
+		"cooldown_seconds",
+		"telegram_bot_token",
+		"telegram_chat_id",
+	}
+	for _, k := range keys {
+		v, _, _ := s.store.GetKV(k)
+		out[k] = v
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(out)
+}
+
+func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "PUT only", http.StatusMethodNotAllowed)
+		return
+	}
+	var body map[string]string
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	for k, v := range body {
+		if err := s.store.SetKV(k, v); err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+	}
+	w.WriteHeader(200)
+}

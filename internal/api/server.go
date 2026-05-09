@@ -40,6 +40,16 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("/api/test-notify", s.handleTestNotify)
 	api.HandleFunc("/api/confirm-rotation", s.handleConfirmRotation)
 	api.HandleFunc("/api/resume-automation", s.handleResumeAutomation)
+	api.HandleFunc("/api/settings", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			s.handleGetSettings(w, r)
+		case http.MethodPut:
+			s.handlePutSettings(w, r)
+		default:
+			http.Error(w, "method not allowed", 405)
+		}
+	})
 	mux.Handle("/api/", BearerAuth(s.authKey, api))
 
 	if s.staticFS != nil {
