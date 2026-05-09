@@ -1,16 +1,90 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
+	"log/slog"
+	"net/http"
 	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+	"time"
+
+	"github.com/tripplemay/proxywatch/internal/config"
+	"github.com/tripplemay/proxywatch/internal/prober"
+	"github.com/tripplemay/proxywatch/internal/store"
 )
 
-const version = "0.0.0-dev"
+const version = "0.1.0-dev"
 
 func main() {
+	var configPath string
+	flag.StringVar(&configPath, "config", "/etc/proxywatch.yaml", "config file path")
+	flag.Parse()
+
 	if len(os.Args) > 1 && os.Args[1] == "version" {
 		fmt.Println(version)
 		return
 	}
-	fmt.Println("proxywatch", version)
+
+	log := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		log.Error("load config", "err", err)
+		os.Exit(1)
+	}
+
+	dbPath := filepath.Join(cfg.DataDir, "proxywatch.sqlite")
+	s, err := store.Open(dbPath)
+	if err != nil {
+		log.Error("open store", "err", err)
+		os.Exit(1)
+	}
+	defer s.Close()
+
+	socksClient, err := prober.NewSOCKS5Client(cfg.CPAProxyURL, time.Duration(cfg.ActiveProbe.TimeoutSeconds)*time.Second)
+	if err != nil {
+		log.Error("build socks5 client", "err", err)
+		os.Exit(1)
+	}
+
+	ipLookup := &prober.IPLookup{
+		Endpoints: prober.DefaultIPLookupEndpoints,
+		Client:    &http.Client{Timeout: 5 * time.Second},
+		Timeout:   5 * time.Second,
+	}
+	probe := &prober.ActiveProber{
+		Target:   cfg.ActiveProbe.Target,
+		Timeout:  time.Duration(cfg.ActiveProbe.TimeoutSeconds) * time.Second,
+		Client:   socksClient,
+		IPLookup: func() (string, error) { return ipLookup.Get() },
+	}
+
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	getInterval := func() time.Duration {
+		return time.Duration(cfg.ActiveProbe.IntervalSeconds) * time.Second
+	}
+
+	log.Info("proxywatch starting", "version", version, "listen", cfg.Listen)
+	go prober.Loop(ctx, s, probe, getInterval, log)
+
+	// HTTP server stub — real handlers added in Phase 3.
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		w.Write([]byte("ok"))
+	})
+	srv := &http.Server{Addr: cfg.Listen, Handler: mux}
+	go func() { _ = srv.ListenAndServe() }()
+
+	<-ctx.Done()
+	log.Info("shutting down")
+	shutdownCtx, c := context.WithTimeout(context.Background(), 5*time.Second)
+	defer c()
+	srv.Shutdown(shutdownCtx)
 }
