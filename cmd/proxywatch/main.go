@@ -29,6 +29,11 @@ func main() {
 	flag.StringVar(&configPath, "config", "/etc/proxywatch.yaml", "config file path")
 	flag.Parse()
 
+	if len(os.Args) > 1 && os.Args[1] == "drill" {
+		runDrill()
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "version" {
 		fmt.Println(version)
 		return
@@ -150,4 +155,22 @@ func main() {
 	shutdownCtx, c := context.WithTimeout(context.Background(), 5*time.Second)
 	defer c()
 	srv.Shutdown(shutdownCtx)
+}
+
+func runDrill() {
+	cfg, err := config.Load("/etc/proxywatch.yaml")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "drill: load config:", err)
+		os.Exit(1)
+	}
+	if cfg.Telegram.BotToken == "" || cfg.Telegram.ChatID == "" {
+		fmt.Fprintln(os.Stderr, "drill: telegram not configured (bot_token or chat_id missing)")
+		os.Exit(1)
+	}
+	tg := notifier.NewTelegram(cfg.Telegram.BotToken, cfg.Telegram.ChatID, &http.Client{Timeout: 10 * time.Second})
+	if err := tg.Send("🧪 proxywatch drill — alert path is working"); err != nil {
+		fmt.Fprintln(os.Stderr, "drill: send failed:", err)
+		os.Exit(1)
+	}
+	fmt.Println("drill alert sent successfully")
 }
