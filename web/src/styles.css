@@ -1,0 +1,16 @@
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; background: #0e1116; color: #e5e7eb; }
+.login, .app { max-width: 720px; margin: 4rem auto; padding: 2rem; }
+.login input { padding: 0.5rem; width: 100%; margin: 1rem 0; background: #1f2937; color: white; border: 1px solid #374151; border-radius: 4px; }
+.login button, footer button { padding: 0.5rem 1rem; background: #374151; color: white; border: 1px solid #4b5563; border-radius: 4px; cursor: pointer; }
+header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 2rem; }
+.version { color: #9ca3af; font-size: 0.875rem; }
+section { background: #1f2937; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; }
+.state { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 4px; font-weight: 600; }
+.state-HEALTHY { background: #065f46; color: #d1fae5; }
+.state-SUSPECT, .state-VERIFYING { background: #92400e; color: #fef3c7; }
+.state-ROTATING, .state-ALERT_ONLY { background: #991b1b; color: #fee2e2; }
+.exit-ip { margin-top: 0.5rem; color: #9ca3af; font-family: monospace; }
+.error { background: #991b1b; color: white; padding: 0.5rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
+ul { margin: 0; padding-left: 1.5rem; }
+footer { margin-top: 2rem; }

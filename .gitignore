@@ -25,6 +25,7 @@ go.work.sum
 
 # Node / frontend
 node_modules/
+web/node_modules/
 /web/dist/
 .pnpm-debug.log
 *.tgz
