@@ -49,14 +49,14 @@ func (s *Store) RecentRotations(limit int) ([]Rotation, error) {
 	var out []Rotation
 	for rows.Next() {
 		var (
-			r        Rotation
-			startMS  int64
-			endMS    sql.NullInt64
-			oldIP    sql.NullString
-			newIP    sql.NullString
-			method   sql.NullString
-			okInt    sql.NullInt64
-			errStr   sql.NullString
+			r       Rotation
+			startMS int64
+			endMS   sql.NullInt64
+			oldIP   sql.NullString
+			newIP   sql.NullString
+			method  sql.NullString
+			okInt   sql.NullInt64
+			errStr  sql.NullString
 		)
 		if err := rows.Scan(&r.ID, &r.IncidentID, &startMS, &endMS, &oldIP, &newIP, &method, &okInt, &errStr); err != nil {
 			return nil, fmt.Errorf("scan: %w", err)

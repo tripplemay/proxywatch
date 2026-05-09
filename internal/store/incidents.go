@@ -7,13 +7,13 @@ import (
 )
 
 type Incident struct {
-	ID             int64
-	StartedAt      time.Time
-	EndedAt        time.Time // zero if open
-	TriggerReason  string    // "passive_4xx" | "active_failure" | "manual"
-	InitialState   string
-	TerminalState  string
-	RotationCount  int
+	ID            int64
+	StartedAt     time.Time
+	EndedAt       time.Time // zero if open
+	TriggerReason string    // "passive_4xx" | "active_failure" | "manual"
+	InitialState  string
+	TerminalState string
+	RotationCount int
 }
 
 func (s *Store) OpenIncident(in Incident) (int64, error) {
