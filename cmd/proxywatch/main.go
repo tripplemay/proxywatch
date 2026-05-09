@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tripplemay/proxywatch/internal/api"
 	"github.com/tripplemay/proxywatch/internal/config"
 	"github.com/tripplemay/proxywatch/internal/prober"
 	"github.com/tripplemay/proxywatch/internal/store"
@@ -73,13 +74,8 @@ func main() {
 	log.Info("proxywatch starting", "version", version, "listen", cfg.Listen)
 	go prober.Loop(ctx, s, probe, getInterval, log)
 
-	// HTTP server stub — real handlers added in Phase 3.
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
-		w.Write([]byte("ok"))
-	})
-	srv := &http.Server{Addr: cfg.Listen, Handler: mux}
+	apiSrv := api.NewServer(s, cfg.AuthKey, version)
+	srv := &http.Server{Addr: cfg.Listen, Handler: apiSrv.Handler()}
 	go func() { _ = srv.ListenAndServe() }()
 
 	<-ctx.Done()
