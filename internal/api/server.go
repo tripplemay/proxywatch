@@ -38,6 +38,8 @@ func (s *Server) Handler() http.Handler {
 	api := http.NewServeMux()
 	api.HandleFunc("/api/status", s.handleStatus)
 	api.HandleFunc("/api/test-notify", s.handleTestNotify)
+	api.HandleFunc("/api/confirm-rotation", s.handleConfirmRotation)
+	api.HandleFunc("/api/resume-automation", s.handleResumeAutomation)
 	mux.Handle("/api/", BearerAuth(s.authKey, api))
 
 	if s.staticFS != nil {

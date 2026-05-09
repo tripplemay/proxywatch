@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tripplemay/proxywatch/internal/decision"
 	"github.com/tripplemay/proxywatch/internal/store"
 )
 
@@ -79,5 +80,29 @@ func TestTestNotifyEnqueuesMessage(t *testing.T) {
 	pending, _ := s.PendingNotifications(10)
 	if len(pending) != 1 {
 		t.Errorf("pending=%d, want 1", len(pending))
+	}
+}
+
+func TestConfirmRotationAdvancesMachine(t *testing.T) {
+	s := newStoreT(t)
+	m := decision.NewMachine(decision.Defaults())
+	srv := NewServer(s, "k", "0.1.0").WithMachine(m)
+
+	// drive machine to SUSPECT
+	for i := 0; i < 3; i++ {
+		m.OnActive(time.Now(), false)
+	}
+	m.Tick(time.Now())
+
+	rec := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/api/confirm-rotation", nil)
+	r.Header.Set("Authorization", "Bearer k")
+	srv.Handler().ServeHTTP(rec, r)
+
+	if rec.Code != 200 {
+		t.Errorf("code=%d", rec.Code)
+	}
+	if m.State() != decision.StateVerifying {
+		t.Errorf("state=%s, want VERIFYING", m.State())
 	}
 }

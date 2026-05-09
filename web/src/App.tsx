@@ -55,6 +55,19 @@ export default function App() {
           </ul>
         ) : <p>No probes yet</p>}
       </section>
+
+      {(status?.state === 'ROTATING' || status?.state === 'SUSPECT') && (
+        <button className="confirm-btn" onClick={async () => {
+          await fetch('/api/confirm-rotation', { method: 'POST', headers: { Authorization: `Bearer ${getKey()}` } })
+        }}>I rotated, re-verify</button>
+      )}
+
+      {status?.state === 'ALERT_ONLY' && (
+        <button className="resume-btn" onClick={async () => {
+          await fetch('/api/resume-automation', { method: 'POST', headers: { Authorization: `Bearer ${getKey()}` } })
+        }}>Resume automation</button>
+      )}
+
       <footer>
         <button onClick={() => { localStorage.removeItem('proxywatch.key'); location.reload() }}>Logout</button>
       </footer>

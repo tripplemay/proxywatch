@@ -14,3 +14,5 @@ section { background: #1f2937; padding: 1.5rem; border-radius: 8px; margin-botto
 .error { background: #991b1b; color: white; padding: 0.5rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
 ul { margin: 0; padding-left: 1.5rem; }
 footer { margin-top: 2rem; }
+.confirm-btn { background: #1d4ed8; color: white; padding: 0.5rem 1rem; border: 0; border-radius: 4px; cursor: pointer; margin: 1rem 0; }
+.resume-btn { background: #b45309; color: white; padding: 0.5rem 1rem; border: 0; border-radius: 4px; cursor: pointer; margin: 1rem 0; }

@@ -69,3 +69,29 @@ func (s *Server) handleTestNotify(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusAccepted)
 }
+
+func (s *Server) handleConfirmRotation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.machine == nil {
+		http.Error(w, "machine not configured", 500)
+		return
+	}
+	s.machine.Confirm()
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleResumeAutomation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.machine == nil {
+		http.Error(w, "machine not configured", 500)
+		return
+	}
+	s.machine.ResumeAutomation()
+	w.WriteHeader(http.StatusOK)
+}
