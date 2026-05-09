@@ -6,11 +6,11 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/tripplemay/proxywatch/internal/decision"
 	"github.com/tripplemay/proxywatch/internal/store"
 )
 
-// RunOnce executes a single active probe and persists the result.
-func RunOnce(s *store.Store, p *ActiveProber) error {
+func RunOnce(s *store.Store, p *ActiveProber, m *decision.Machine) error {
 	r := p.Run()
 	_, err := s.InsertProbe(store.Probe{
 		TS:        r.TS,
@@ -25,15 +25,17 @@ func RunOnce(s *store.Store, p *ActiveProber) error {
 	if err != nil {
 		return fmt.Errorf("persist probe: %w", err)
 	}
+	if m != nil {
+		m.OnActive(r.TS, r.OK)
+		m.Tick(r.TS)
+	}
 	return nil
 }
 
-// Loop runs RunOnce on a ticker until ctx is cancelled.
-// Interval is read fresh from getInterval each tick to allow live config changes.
-func Loop(ctx context.Context, s *store.Store, p *ActiveProber, getInterval func() time.Duration, log *slog.Logger) {
+func Loop(ctx context.Context, s *store.Store, p *ActiveProber, m *decision.Machine, getInterval func() time.Duration, log *slog.Logger) {
 	for {
-		if err := RunOnce(s, p); err != nil {
-			log.Error("active probe failed", "err", err)
+		if err := RunOnce(s, p, m); err != nil {
+			log.Error("active probe", "err", err)
 		}
 		select {
 		case <-ctx.Done():

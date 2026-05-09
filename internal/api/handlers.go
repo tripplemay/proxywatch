@@ -25,7 +25,11 @@ type probeJSON struct {
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
-	resp := statusResponse{Version: s.version, State: "HEALTHY"}
+	state := "HEALTHY"
+	if s.machine != nil {
+		state = string(s.machine.State())
+	}
+	resp := statusResponse{Version: s.version, State: state}
 
 	rows, err := s.store.RecentProbes(1, "active")
 	if err != nil {

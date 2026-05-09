@@ -14,6 +14,7 @@ import (
 
 	"github.com/tripplemay/proxywatch/internal/api"
 	"github.com/tripplemay/proxywatch/internal/config"
+	"github.com/tripplemay/proxywatch/internal/decision"
 	"github.com/tripplemay/proxywatch/internal/notifier"
 	"github.com/tripplemay/proxywatch/internal/prober"
 	"github.com/tripplemay/proxywatch/internal/store"
@@ -76,7 +77,23 @@ func main() {
 	}
 
 	log.Info("proxywatch starting", "version", version, "listen", cfg.Listen)
-	go prober.Loop(ctx, s, probe, getInterval, log)
+	m := decision.NewMachine(decision.Defaults())
+	go prober.Loop(ctx, s, probe, m, getInterval, log)
+
+	// Tick the machine periodically so time-driven transitions fire even
+	// without a probe event (e.g. SUSPECT → ROTATING after observation).
+	go func() {
+		t := time.NewTicker(5 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				m.Tick(time.Now())
+			}
+		}
+	}()
 
 	if cfg.Telegram.BotToken != "" && cfg.Telegram.ChatID != "" {
 		tg := notifier.NewTelegram(cfg.Telegram.BotToken, cfg.Telegram.ChatID, &http.Client{Timeout: 10 * time.Second})
@@ -86,7 +103,7 @@ func main() {
 		log.Warn("telegram not configured; notifications will queue but not be sent")
 	}
 
-	apiSrv := api.NewServer(s, cfg.AuthKey, version).WithStatic(web.FS())
+	apiSrv := api.NewServer(s, cfg.AuthKey, version).WithStatic(web.FS()).WithMachine(m)
 	srv := &http.Server{Addr: cfg.Listen, Handler: apiSrv.Handler()}
 	go func() { _ = srv.ListenAndServe() }()
 

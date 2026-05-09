@@ -34,7 +34,7 @@ func TestRunOnceWritesProbe(t *testing.T) {
 		IPLookup: func() (string, error) { return "5.6.7.8", nil },
 	}
 
-	if err := RunOnce(s, p); err != nil {
+	if err := RunOnce(s, p, nil); err != nil {
 		t.Fatalf("RunOnce: %v", err)
 	}
 	rows, err := s.RecentProbes(10, "active")
