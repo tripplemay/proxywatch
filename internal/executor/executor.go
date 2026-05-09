@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/tripplemay/proxywatch/internal/decision"
+	"github.com/tripplemay/proxywatch/internal/notifier"
 	"github.com/tripplemay/proxywatch/internal/store"
 )
 
@@ -18,7 +19,7 @@ import (
 type Executor struct {
 	Store   *store.Store
 	Machine *decision.Machine
-	Alert   func(text string, level string)
+	Alert   func(text string, level string, buttons []notifier.InlineButton)
 	Log     *slog.Logger
 
 	prevState     decision.State
@@ -46,7 +47,7 @@ func (e *Executor) tick(now time.Time) {
 	// Proxy-gateway-down alert path — independent of state machine.
 	if e.Machine.IsProxyDown() && !e.prevProxyDown {
 		if e.Alert != nil {
-			e.Alert("⚠️ proxy gateway unreachable (TCP failure to SOCKS5 endpoint).\nThis is NOT a rotation trigger; check miyaIP service health.", "warning")
+			e.Alert("⚠️ proxy gateway unreachable (TCP failure to SOCKS5 endpoint).\nThis is NOT a rotation trigger; check miyaIP service health.", "warning", nil)
 		}
 		e.prevProxyDown = true
 	}
@@ -79,7 +80,11 @@ func (e *Executor) tick(now time.Time) {
 		e.rotationStart = now
 		e.rotationOldIP = e.lastExitIP()
 		if e.Alert != nil {
-			e.Alert(fmt.Sprintf("⚠️ proxy unhealthy\ncurrent IP: %s\nplease rotate at miyaIP backend; proxywatch will auto-detect", e.rotationOldIP), "warning")
+			e.Alert(fmt.Sprintf("⚠️ proxy unhealthy\ncurrent IP: %s\nplease rotate at miyaIP backend; proxywatch will auto-detect", e.rotationOldIP), "warning",
+				[]notifier.InlineButton{
+					{Text: "I rotated, re-verify", CallbackData: "confirm"},
+					{Text: "Refresh", CallbackData: "refresh"},
+				})
 		}
 	case decision.StateCooldown:
 		newIP := e.lastExitIP()
@@ -95,11 +100,12 @@ func (e *Executor) tick(now time.Time) {
 		_ = e.Store.CloseIncident(e.openIncident, now, "recovered")
 		e.openIncident = 0
 		if e.Alert != nil {
-			e.Alert(fmt.Sprintf("✅ recovered\nold: %s\nnew: %s", e.rotationOldIP, newIP), "info")
+			e.Alert(fmt.Sprintf("✅ recovered\nold: %s\nnew: %s", e.rotationOldIP, newIP), "info", nil)
 		}
 	case decision.StateAlertOnly:
 		if e.Alert != nil {
-			e.Alert("❌ automation paused — please investigate", "error")
+			e.Alert("❌ automation paused — please investigate", "error",
+				[]notifier.InlineButton{{Text: "Resume automation", CallbackData: "resume"}})
 		}
 		if e.openIncident != 0 {
 			_ = e.Store.CloseIncident(e.openIncident, now, "alert_only")

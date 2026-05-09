@@ -126,10 +126,49 @@ func main() {
 		}()
 	}
 
+	var tg *notifier.Telegram // may be nil if not configured
 	if cfg.Telegram.BotToken != "" && cfg.Telegram.ChatID != "" {
-		tg := notifier.NewTelegram(cfg.Telegram.BotToken, cfg.Telegram.ChatID, &http.Client{Timeout: 10 * time.Second})
+		tg = notifier.NewTelegram(cfg.Telegram.BotToken, cfg.Telegram.ChatID, &http.Client{Timeout: 10 * time.Second})
 		q := &notifier.Queue{Store: s, Telegram: tg}
 		go q.Loop(ctx, 10*time.Second, log)
+
+		// Bot: long-poll for incoming commands and callback_query events.
+		// Use a separate Telegram client with a longer timeout for long-polling.
+		tgBot := notifier.NewTelegram(cfg.Telegram.BotToken, cfg.Telegram.ChatID, &http.Client{Timeout: 35 * time.Second})
+		bot := &notifier.Bot{
+			Telegram:   tgBot,
+			AuthChatID: cfg.Telegram.ChatID,
+			Log:        log,
+		}
+		bot.Commands = map[string]notifier.CommandHandler{
+			"/start": helpCmd,
+			"/help":  helpCmd,
+			"/status": func(ctx context.Context, args string) string {
+				return formatStatus(s, m)
+			},
+			"/probe": func(ctx context.Context, args string) string {
+				if err := prober.RunOnce(s, probe, m); err != nil {
+					return "probe failed: " + err.Error()
+				}
+				return "probe done\n\n" + formatStatus(s, m)
+			},
+		}
+		bot.Callbacks = map[string]notifier.CallbackHandler{
+			"confirm": func(ctx context.Context, data string) (string, bool) {
+				m.Confirm()
+				return "✓ confirmed — re-verifying", true
+			},
+			"resume": func(ctx context.Context, data string) (string, bool) {
+				m.ResumeAutomation()
+				return "✓ automation resumed", true
+			},
+			"refresh": func(ctx context.Context, data string) (string, bool) {
+				// send full status as a new message; callback ack is brief
+				go func() { _ = tg.Send(formatStatus(s, m)) }()
+				return "↻ status sent", false
+			},
+		}
+		go bot.Run(ctx)
 	} else {
 		log.Warn("telegram not configured; notifications will queue but not be sent")
 	}
@@ -137,7 +176,16 @@ func main() {
 	exec := &executor.Executor{
 		Store:   s,
 		Machine: m,
-		Alert: func(text, level string) {
+		Alert: func(text, level string, buttons []notifier.InlineButton) {
+			if len(buttons) > 0 && tg != nil {
+				// Alerts with inline buttons go direct — the queue does not support reply_markup.
+				// Known tradeoff: these alerts skip retry semantics (no re-queue on failure).
+				if err := tg.SendWithButtons(text, buttons); err != nil {
+					log.Error("alert send (with buttons)", "err", err)
+				}
+				return
+			}
+			// No buttons — go through queue for delivery retry semantics.
 			_, _ = s.EnqueueNotification(store.Notification{
 				TS: time.Now(), Level: level, Text: text,
 			})
@@ -155,6 +203,23 @@ func main() {
 	shutdownCtx, c := context.WithTimeout(context.Background(), 5*time.Second)
 	defer c()
 	srv.Shutdown(shutdownCtx)
+}
+
+func helpCmd(_ context.Context, _ string) string {
+	return "proxywatch bot commands:\n/status — show current state\n/probe — trigger active probe now\n/help — this message\n\nIn alerts you can tap [I rotated] / [Resume] / [Refresh] inline buttons."
+}
+
+func formatStatus(s *store.Store, m *decision.Machine) string {
+	rows, _ := s.RecentProbes(1, "active")
+	var lastLine string
+	exitIP := "(unknown)"
+	if len(rows) > 0 {
+		p := rows[0]
+		exitIP = p.ExitIP
+		ageS := int(time.Since(p.TS).Seconds())
+		lastLine = fmt.Sprintf("\nlast probe: HTTP %d, %dms, %ds ago", p.HTTPCode, p.LatencyMS, ageS)
+	}
+	return fmt.Sprintf("state: %s\nexit IP: %s%s", m.State(), exitIP, lastLine)
 }
 
 func runDrill() {

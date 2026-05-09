@@ -24,10 +24,21 @@ func NewTelegram(token, chatID string, http *http.Client) *Telegram {
 	}
 }
 
+// InlineButton is one button in a single-row inline keyboard.
+type InlineButton struct {
+	Text         string `json:"text"`
+	CallbackData string `json:"callback_data"`
+}
+
 type sendMessageBody struct {
-	ChatID    string `json:"chat_id"`
-	Text      string `json:"text"`
-	ParseMode string `json:"parse_mode,omitempty"`
+	ChatID      string          `json:"chat_id"`
+	Text        string          `json:"text"`
+	ParseMode   string          `json:"parse_mode,omitempty"`
+	ReplyMarkup *inlineKeyboard `json:"reply_markup,omitempty"`
+}
+
+type inlineKeyboard struct {
+	InlineKeyboard [][]InlineButton `json:"inline_keyboard"`
 }
 
 type sendMessageResp struct {
@@ -35,11 +46,24 @@ type sendMessageResp struct {
 	Description string `json:"description"`
 }
 
+// Send sends a plain text message (no inline keyboard).
 func (t *Telegram) Send(text string) error {
+	return t.SendWithButtons(text, nil)
+}
+
+// SendWithButtons sends a message with an optional single-row inline keyboard.
+// Pass nil or empty buttons to send without buttons (equivalent to Send).
+func (t *Telegram) SendWithButtons(text string, buttons []InlineButton) error {
 	if t.Token == "" || t.ChatID == "" {
 		return fmt.Errorf("telegram: token or chat_id not configured")
 	}
-	body, _ := json.Marshal(sendMessageBody{ChatID: t.ChatID, Text: text})
+	msg := sendMessageBody{ChatID: t.ChatID, Text: text}
+	if len(buttons) > 0 {
+		msg.ReplyMarkup = &inlineKeyboard{
+			InlineKeyboard: [][]InlineButton{buttons},
+		}
+	}
+	body, _ := json.Marshal(msg)
 	url := fmt.Sprintf("%s/bot%s/sendMessage", t.BaseURL, t.Token)
 	req, _ := http.NewRequest("POST", url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")

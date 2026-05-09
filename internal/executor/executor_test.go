@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tripplemay/proxywatch/internal/decision"
+	"github.com/tripplemay/proxywatch/internal/notifier"
 	"github.com/tripplemay/proxywatch/internal/store"
 )
 
@@ -31,7 +32,7 @@ func TestExecutorAlertsOnEnterRotating(t *testing.T) {
 	e := &Executor{
 		Store:   s,
 		Machine: m,
-		Alert: func(text string, level string) {
+		Alert: func(text string, level string, buttons []notifier.InlineButton) {
 			atomic.AddInt32(&alerts, 1)
 		},
 	}
