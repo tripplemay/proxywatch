@@ -74,7 +74,9 @@ func main() {
 	defer cancel()
 
 	getInterval := func() time.Duration {
-		return time.Duration(cfg.ActiveProbe.IntervalSeconds) * time.Second
+		// Read from KV on every call so panel-edited values take effect at the next tick.
+		n := s.GetKVInt("active_probe_interval_seconds", cfg.ActiveProbe.IntervalSeconds)
+		return time.Duration(n) * time.Second
 	}
 
 	log.Info("proxywatch starting", "version", version, "listen", cfg.Listen)

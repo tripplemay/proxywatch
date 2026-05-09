@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -28,4 +29,16 @@ func (s *Store) GetKV(key string) (string, bool, error) {
 		return "", false, fmt.Errorf("get kv: %w", err)
 	}
 	return v, true, nil
+}
+
+func (s *Store) GetKVInt(key string, dflt int) int {
+	v, ok, err := s.GetKV(key)
+	if err != nil || !ok {
+		return dflt
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return dflt
+	}
+	return n
 }
