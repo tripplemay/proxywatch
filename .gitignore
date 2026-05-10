@@ -42,3 +42,4 @@ proxywatch.local.yaml
 # cpa-stress test output (per spec §7 — never committed)
 tools/cpa-stress/run-*.jsonl
 tools/cpa-stress/cpa-stress-report-*/
+cpa-stress-results/
