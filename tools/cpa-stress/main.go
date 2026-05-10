@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -23,14 +25,18 @@ func main() {
 		outputDir    string
 		dryRun       bool
 		stepDuration time.Duration
+		rampStr      string
+		hardLimit    time.Duration
 		showVer      bool
 	)
 	flag.StringVar(&apiKey, "api-key", "", "CPA client API key (required)")
 	flag.StringVar(&baseURL, "base-url", "https://api.vpanel.cc", "CPA base URL")
 	flag.StringVar(&socksURL, "socks-url", "", "SOCKS5 URL for exit-IP sampling, e.g. socks5h://user:pass@host:port (required)")
 	flag.StringVar(&outputDir, "output-dir", ".", "where to write run-<ts>.jsonl and report dir")
-	flag.BoolVar(&dryRun, "dry-run", false, "short test (each step 30s, max C=4)")
+	flag.BoolVar(&dryRun, "dry-run", false, "short test (each step 30s, ramp 1,2,4)")
 	flag.DurationVar(&stepDuration, "step-duration", 3*time.Minute, "per-step duration (overridden by -dry-run)")
+	flag.StringVar(&rampStr, "ramp", "", "comma-separated concurrency levels (default: 1,2,4,8,16,32,64; overridden by -dry-run)")
+	flag.DurationVar(&hardLimit, "hard-limit", 25*time.Minute, "total wall-clock cap (overridden by -dry-run)")
 	flag.BoolVar(&showVer, "version", false, "print version and exit")
 	flag.Parse()
 
@@ -64,8 +70,11 @@ func main() {
 		log.Fatalf("build socks5 sampler: %v", err)
 	}
 
-	steps := buildSteps(dryRun, stepDuration)
-	hardLimit := 25 * time.Minute
+	ramp, err := parseRamp(rampStr, []int{1, 2, 4, 8, 16, 32, 64})
+	if err != nil {
+		log.Fatalf("parse -ramp: %v", err)
+	}
+	steps := buildSteps(dryRun, stepDuration, ramp)
 	if dryRun {
 		hardLimit = 5 * time.Minute
 	}
@@ -129,7 +138,7 @@ func main() {
 	log.Printf("report ready: %s", reportPath)
 }
 
-func buildSteps(dryRun bool, stepDur time.Duration) []StepConfig {
+func buildSteps(dryRun bool, stepDur time.Duration, ramp []int) []StepConfig {
 	if dryRun {
 		return []StepConfig{
 			{Step: 0, Concurrency: 1, Duration: 30 * time.Second},
@@ -137,10 +146,37 @@ func buildSteps(dryRun bool, stepDur time.Duration) []StepConfig {
 			{Step: 2, Concurrency: 4, Duration: 30 * time.Second},
 		}
 	}
-	cs := []int{1, 2, 4, 8, 16, 32, 64}
-	out := make([]StepConfig, len(cs))
-	for i, c := range cs {
+	out := make([]StepConfig, len(ramp))
+	for i, c := range ramp {
 		out[i] = StepConfig{Step: i, Concurrency: c, Duration: stepDur}
 	}
 	return out
+}
+
+// parseRamp parses a comma-separated list of positive integers.
+// Empty input returns dflt unchanged.
+func parseRamp(s string, dflt []int) ([]int, error) {
+	if strings.TrimSpace(s) == "" {
+		return dflt, nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]int, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ramp value %q: %w", p, err)
+		}
+		if n <= 0 {
+			return nil, fmt.Errorf("ramp value must be positive, got %d", n)
+		}
+		out = append(out, n)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("ramp is empty")
+	}
+	return out, nil
 }
