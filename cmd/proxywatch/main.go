@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -177,17 +178,16 @@ func main() {
 		Store:   s,
 		Machine: m,
 		Alert: func(text, level string, buttons []notifier.InlineButton) {
-			if len(buttons) > 0 && tg != nil {
-				// Alerts with inline buttons go direct — the queue does not support reply_markup.
-				// Known tradeoff: these alerts skip retry semantics (no re-queue on failure).
-				if err := tg.SendWithButtons(text, buttons); err != nil {
-					log.Error("alert send (with buttons)", "err", err)
-				}
-				return
+			var btnJSON string
+			if len(buttons) > 0 {
+				b, _ := json.Marshal(buttons)
+				btnJSON = string(b)
 			}
-			// No buttons — go through queue for delivery retry semantics.
 			_, _ = s.EnqueueNotification(store.Notification{
-				TS: time.Now(), Level: level, Text: text,
+				TS:      time.Now(),
+				Level:   level,
+				Text:    text,
+				Buttons: btnJSON,
 			})
 		},
 		Log: log,

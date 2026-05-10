@@ -2,6 +2,7 @@ package notifier
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"time"
 
@@ -34,8 +35,22 @@ func (q *Queue) DrainOnce(ctx context.Context) error {
 		if n.RetryCount >= q.maxRetries() {
 			continue
 		}
-		if err := q.Telegram.Send(n.Text); err != nil {
-			_ = q.Store.RecordNotificationFailure(n.ID, err.Error())
+		var sendErr error
+		if n.Buttons != "" {
+			var buttons []InlineButton
+			if jerr := json.Unmarshal([]byte(n.Buttons), &buttons); jerr != nil {
+				// malformed JSON — fall back to plain Send so we don't block the queue
+				sendErr = q.Telegram.Send(n.Text)
+			} else if len(buttons) > 0 {
+				sendErr = q.Telegram.SendWithButtons(n.Text, buttons)
+			} else {
+				sendErr = q.Telegram.Send(n.Text)
+			}
+		} else {
+			sendErr = q.Telegram.Send(n.Text)
+		}
+		if sendErr != nil {
+			_ = q.Store.RecordNotificationFailure(n.ID, sendErr.Error())
 			continue
 		}
 		_ = q.Store.MarkNotificationSent(n.ID, time.Now())

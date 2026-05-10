@@ -2,9 +2,11 @@ package notifier
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -64,5 +66,38 @@ func TestQueueDrainRecordsFailureAndContinues(t *testing.T) {
 	pending, _ := s.PendingNotifications(10)
 	if len(pending) != 1 || pending[0].RetryCount != 1 {
 		t.Errorf("after failure, retry_count=%d, len=%d", pending[0].RetryCount, len(pending))
+	}
+}
+
+func TestQueueDrainSendsWithButtonsWhenPresent(t *testing.T) {
+	var hits, gotReplyMarkup int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		body, _ := io.ReadAll(r.Body)
+		if strings.Contains(string(body), "reply_markup") {
+			atomic.AddInt32(&gotReplyMarkup, 1)
+		}
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	s := newStoreT(t)
+	tg := &Telegram{Token: "t", ChatID: "c", BaseURL: srv.URL, HTTP: srv.Client()}
+	q := &Queue{Store: s, Telegram: tg}
+
+	s.EnqueueNotification(store.Notification{
+		TS:      time.Now(),
+		Level:   "warning",
+		Text:    "boom",
+		Buttons: `[{"text":"OK","callback_data":"ok"}]`,
+	})
+	if err := q.DrainOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if atomic.LoadInt32(&hits) != 1 {
+		t.Errorf("hits=%d, want 1", hits)
+	}
+	if atomic.LoadInt32(&gotReplyMarkup) != 1 {
+		t.Errorf("expected reply_markup in body, got %d", gotReplyMarkup)
 	}
 }

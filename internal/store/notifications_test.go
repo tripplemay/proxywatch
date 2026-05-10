@@ -55,3 +55,30 @@ func TestRecordNotificationFailureIncrements(t *testing.T) {
 		t.Errorf("retry_count=%d, want 2", pending[0].RetryCount)
 	}
 }
+
+func TestEnqueueWithButtonsRoundTrips(t *testing.T) {
+	s := newStore(t)
+	id, err := s.EnqueueNotification(Notification{
+		TS:      time.Now(),
+		Level:   "warning",
+		Text:    "with buttons",
+		Buttons: `[{"text":"OK","callback_data":"ok"}]`,
+	})
+	if err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+	if id == 0 {
+		t.Fatal("zero id")
+	}
+
+	pending, err := s.PendingNotifications(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pending) != 1 {
+		t.Fatalf("len=%d", len(pending))
+	}
+	if pending[0].Buttons != `[{"text":"OK","callback_data":"ok"}]` {
+		t.Errorf("buttons roundtrip: got %q", pending[0].Buttons)
+	}
+}

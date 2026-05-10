@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     incident_id INTEGER,
     level       TEXT NOT NULL,
     text        TEXT NOT NULL,
+    buttons     TEXT,
     sent_at     INTEGER,
     error       TEXT,
     retry_count INTEGER NOT NULL DEFAULT 0
