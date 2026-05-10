@@ -38,3 +38,7 @@ internal/web/dist/*
 *.env
 .env.local
 proxywatch.local.yaml
+
+# cpa-stress test output (per spec §7 — never committed)
+tools/cpa-stress/run-*.jsonl
+tools/cpa-stress/cpa-stress-report-*/
